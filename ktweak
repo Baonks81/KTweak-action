@@ -112,7 +112,7 @@ write /proc/sys/vm/stat_interval 10
 write /proc/sys/vm/swappiness 100
 
 # Allow more inodes and dentries to be cached
-write /proc/sys/vm/vfs_cache_pressure 60
+write /proc/sys/vm/vfs_cache_pressure 200
 
 # Enable Explicit Congestion Control
 write /proc/sys/net/ipv4/tcp_ecn 1
