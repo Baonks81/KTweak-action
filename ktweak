@@ -43,20 +43,6 @@ echo "Branch: master"
 # Sync to data in the rare case a device crashes
 sync
 
-# We need to execute this multiple times because
-# sched_downmirate must be less than sched_upmigrate, and
-# sched_upmigrate must be greater than sched_downmigrate
-for _ in $(seq 2)
-do
-	# Migrate tasks down at this much load
-	write /proc/sys/kernel/sched_downmigrate "70 70"
-	write /proc/sys/kernel/sched_group_downmigrate 70
-
-	# Migrate tasks up at this much load
-	write /proc/sys/kernel/sched_upmigrate "70 70"
-	write /proc/sys/kernel/sched_group_upmigrate 70
-done
-
 # Limit max perf event processing time to this much CPU usage
 write /proc/sys/kernel/perf_cpu_time_max_percent 5
 
@@ -204,7 +190,7 @@ do
 	write "$queue/iostats" 0
 
 	# Reduce heuristic read-ahead in exchange for I/O latency
-	write "$queue/read_ahead_kb" 32
+	write "$queue/read_ahead_kb" 128
 
 	# Reduce the maximum number of I/O requests in exchange for latency
 	write "$queue/nr_requests" 64
