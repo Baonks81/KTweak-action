@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Written by Draco (tytydraco @ GitHub)
 
+# The name of the current branch for logging purposes
+BRANCH="balance"
+
 # Maximum unsigned integer size in C
 UINT_MAX="4294967295"
 
 # Duration in nanoseconds of one scheduling period
-SCHED_PERIOD="$((1 * 1000 * 1000))"
+SCHED_PERIOD="$((4 * 1000 * 1000))"
 
 # How many tasks should we have at a maximum in one scheduling period
 SCHED_TASKS="8"
@@ -35,10 +38,12 @@ then
 	exit 1
 fi
 
+# Detect if we are running on Android
+grep -q android /proc/cmdline && ANDROID=true
 
 # Log the date and time for records sake
 echo "Time of execution: $(date)"
-echo "Branch: master"
+echo "Branch: $BRANCH"
 
 # Sync to data in the rare case a device crashes
 sync
@@ -46,8 +51,8 @@ sync
 # Limit max perf event processing time to this much CPU usage
 write /proc/sys/kernel/perf_cpu_time_max_percent 5
 
-# Do not group task groups automatically
-write /proc/sys/kernel/sched_autogroup_enabled 0
+# Group tasks for less stutter but less throughput
+write /proc/sys/kernel/sched_autogroup_enabled 1
 
 # Execute child process before parent after fork
 write /proc/sys/kernel/sched_child_runs_first 1
@@ -68,13 +73,16 @@ write /proc/sys/kernel/sched_wakeup_granularity_ns "$((SCHED_PERIOD / 2))"
 write /proc/sys/kernel/sched_migration_cost_ns 5000000
 
 # Always allow sched boosting on top-app tasks
-write /proc/sys/kernel/sched_min_task_util_for_colocation 0
+[[ "$ANDROID" == true ]] && write /proc/sys/kernel/sched_min_task_util_for_colocation 0
 
 # Improve real time latencies by reducing the scheduler migration time
-write /proc/sys/kernel/sched_nr_migrate 8
+write /proc/sys/kernel/sched_nr_migrate 32
 
 # Disable scheduler statistics to reduce overhead
 write /proc/sys/kernel/sched_schedstats 0
+
+# Disable unnecessary printk logging
+write /proc/sys/kernel/printk_devkmsg off
 
 # Start non-blocking writeback later
 write /proc/sys/vm/dirty_background_ratio 10
@@ -97,8 +105,8 @@ write /proc/sys/vm/stat_interval 10
 # Swap to the swap device at a fair rate
 write /proc/sys/vm/swappiness 100
 
-# Allow more inodes and dentries to be cached
-write /proc/sys/vm/vfs_cache_pressure 200
+# Fairly prioritize page cache and file structures
+write /proc/sys/vm/vfs_cache_pressure 100
 
 # Enable Explicit Congestion Control
 write /proc/sys/net/ipv4/tcp_ecn 1
@@ -118,10 +126,10 @@ then
 	write /sys/kernel/debug/sched_features TTWU_QUEUE
 fi
 
-if [[ -d "/dev/stune/" ]]
+[[ "$ANDROID" == true ]] && if [[ -d "/dev/stune/" ]]
 then
-	# Prefer to schedule top-app tasks on idle CPUs
-	write /dev/stune/top-app/schedtune.prefer_idle 1
+	# We are not concerned with prioritizing latency
+	write /dev/stune/top-app/schedtune.prefer_idle 0
 
 	# Mark top-app as boosted, find high-performing CPUs
 	write /dev/stune/top-app/schedtune.boost 1
